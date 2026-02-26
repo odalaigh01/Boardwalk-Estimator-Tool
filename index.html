@@ -21,15 +21,33 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @media print {
+            @page {
+                margin: 0.5in;
+            }
             .no-print { display: none !important; }
-            body { background-color: white !important; }
+            body { 
+                background-color: white !important; 
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
-            /* Ensure map is visible in print */
             .leaflet-control-container { display: none !important; }
             #map { 
-                height: 350px !important; 
-                border: 1px solid #e2e8f0 !important;
+                height: 400px !important; 
+                border: 2px solid #334155 !important; /* Darker border for print */
                 break-inside: avoid;
+                margin-bottom: 0.5rem !important;
+            }
+            .print-legend {
+                display: flex !important;
+                gap: 20px !important;
+                margin-top: 10px !important;
+                margin-bottom: 25px !important;
+                color: black !important;
+            }
+            /* Darken text for print legibility */
+            .text-slate-400, .text-slate-500, .text-emerald-100, .text-emerald-200 {
+                color: #334155 !important;
             }
         }
         input::-webkit-outer-spin-button,
@@ -99,15 +117,15 @@
         );
 
         const MaterialRow = ({ name, desc, qty, cost }) => (
-            <tr className="group transition-colors hover:bg-slate-50/50 print:hover:bg-transparent">
-                <td className="px-3 md:px-6 py-4 print:px-0">
+            <tr className="group transition-colors hover:bg-slate-50/50 print:hover:bg-transparent print:border-b print:border-slate-100">
+                <td className="px-3 md:px-6 py-4 print:pl-0">
                     <div>
                         <div className="font-bold text-slate-700 print:text-black text-xs md:text-sm">{name}</div>
-                        <div className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">{desc}</div>
+                        <div className="text-[9px] md:text-[10px] text-slate-400 print:text-slate-600 font-bold uppercase tracking-widest">{desc}</div>
                     </div>
                 </td>
-                <td className="px-3 md:px-6 py-4 text-center text-slate-600 font-medium font-mono text-xs md:text-sm print:text-black print:px-0">{qty}</td>
-                <td className="px-3 md:px-6 py-4 text-right font-bold text-slate-700 print:text-black print:px-0 text-xs md:text-sm">
+                <td className="px-3 md:px-6 py-4 text-center text-slate-600 font-medium font-mono text-xs md:text-sm print:text-black">{qty}</td>
+                <td className="px-3 md:px-6 py-4 text-right font-bold text-slate-700 print:text-black print:pr-0 text-xs md:text-sm">
                     ${(cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </td>
             </tr>
@@ -120,14 +138,12 @@
 
             useEffect(() => {
                 if (!mapInstance.current) {
-                    // Initialize Map focused on Northern Michigan
                     mapInstance.current = L.map('map').setView([45.4, -84.9], 9);
                     
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; OpenStreetMap'
                     }).addTo(mapInstance.current);
 
-                    // Add Nature Preserves Layer
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/LTC_Nature_Preserves_2025/FeatureServer/0',
                         style: {
@@ -137,7 +153,6 @@
                         return L.Util.template('<strong>Preserve:</strong> {Preserve_Name}', layer.feature.properties);
                     });
 
-                    // Add Working Forest Layer
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/WFR_2022/FeatureServer/0',
                         style: {
@@ -168,8 +183,6 @@
                             style: { color: '#dc2626', weight: 5, opacity: 0.9 }
                         }).addTo(mapInstance.current);
 
-                        // CRITICAL: Invalidate map size to ensure container dimensions are correctly calculated
-                        // before calling fitBounds, which fixes issues in environments like GitHub Pages.
                         mapInstance.current.invalidateSize();
 
                         const bounds = geoJsonLayer.current.getBounds();
@@ -181,7 +194,6 @@
                             });
                         }
 
-                        // Calculate length using Turf
                         const lengthKm = turf.length(geojson, { units: 'kilometers' });
                         const lengthFeet = Math.round(lengthKm * 3280.84);
                         onLengthCalculated(lengthFeet);
@@ -194,7 +206,7 @@
             };
 
             return (
-                <section className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 print:p-0 print:border-none print:shadow-none print:mb-8">
+                <section className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 print:p-0 print:border-none print:shadow-none print:mb-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b pb-2 no-print gap-2">
                         <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
                             <Icon name="map" className="text-emerald-600" />
@@ -209,22 +221,22 @@
                     
                     <div id="map" className="z-0 border border-slate-100 shadow-inner overflow-hidden"></div>
                     
-                    <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 print-legend">
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-emerald-500 rounded-sm opacity-50 border border-emerald-600"></div>
-                            <span className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase">Nature Preserves</span>
+                            <div className="w-3 h-3 bg-emerald-500 rounded-sm border border-emerald-600" style={{printColorAdjust: 'exact'}}></div>
+                            <span className="text-[9px] md:text-[10px] font-bold text-slate-600 print:text-black uppercase">Nature Preserves</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-sm opacity-50 border border-blue-600"></div>
-                            <span className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase">Working Forest</span>
+                            <div className="w-3 h-3 bg-blue-500 rounded-sm border border-blue-600" style={{printColorAdjust: 'exact'}}></div>
+                            <span className="text-[9px] md:text-[10px] font-bold text-slate-600 print:text-black uppercase">Working Forest</span>
                         </div>
                         <div className="flex items-center gap-2 ml-0 sm:ml-auto">
-                            <div className="w-3 h-0.5 bg-red-600"></div>
-                            <span className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase">Uploaded Track</span>
+                            <div className="w-3 h-0.5 bg-red-600" style={{printColorAdjust: 'exact'}}></div>
+                            <span className="text-[9px] md:text-[10px] font-bold text-slate-600 print:text-black uppercase">Uploaded Track</span>
                         </div>
                     </div>
 
-                    {fileName && <p className="text-[10px] text-emerald-600 font-bold uppercase mt-2">Active Track: {fileName}</p>}
+                    {fileName && <p className="text-[10px] text-emerald-700 font-bold uppercase mt-2 print:mt-1 print:text-black">Active Track: {fileName}</p>}
                 </section>
             );
         };
@@ -254,14 +266,12 @@
                 const shimItems = shimCount > 0 ? Math.ceil(shimCount / UNITS.shimLen) : 0; 
                 const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
 
-                // Correct Sub-total calculations (Quantity * Price)
                 const deckingTotalCost = deckingItems * costs.decking;
                 const supportTotalCost = supportItems * costs.support;
                 const shimTotalCost = shimItems * costs.shim;
                 const fastenerTotalCost = screwItems * costs.screws;
                 const totalCost = deckingTotalCost + supportTotalCost + shimTotalCost + fastenerTotalCost;
 
-                // BF Volume calculation based on purchased wood
                 const totalBF = ((2*10*(deckingItems*12)) + (4*6*(supportItems*12)) + (2*6*(shimItems*12))) / 12;
 
                 return {
@@ -292,11 +302,11 @@
             const handlePrint = () => window.print();
 
             return (
-                <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-0">
-                    <header className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:mb-4">
+                <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-4 print:max-w-none">
+                    <header className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:mb-4 print:border-slate-800">
                         <div>
-                            <h1 className="text-2xl md:text-3xl font-bold text-emerald-900 flex items-center gap-2 leading-tight">
-                                <Icon name="trees" size={32} className="text-emerald-600 print:text-emerald-700 flex-shrink-0" />
+                            <h1 className="text-2xl md:text-3xl font-bold text-emerald-900 flex items-center gap-2 leading-tight print:text-black">
+                                <Icon name="trees" size={32} className="text-emerald-600 print:text-black flex-shrink-0" />
                                 LTC Boardwalk Cost Estimator
                             </h1>
                         </div>
@@ -350,28 +360,28 @@
 
                         {/* Column 2: Results & Table */}
                         <div className="lg:col-span-8 space-y-6 print:col-span-12 print:w-full">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="bg-emerald-600 text-white p-5 md:p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-slate-900 print:border-slate-200 print:shadow-none">
-                                    <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-500">Total Project Cost</p>
-                                    <h3 className="text-3xl md:text-4xl font-black print:text-2xl leading-none">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
-                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-400">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-2">
+                                <div className="bg-emerald-600 text-white p-5 md:p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-black print:border-slate-800 print:shadow-none">
+                                    <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-900">Total Project Cost</p>
+                                    <h3 className="text-3xl md:text-4xl font-black print:text-3xl leading-none">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
+                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-800">
                                        ${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per lin ft
                                     </p>
                                 </div>
-                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center print:shadow-none">
-                                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center">Cubic Feet Volume</p>
-                                    <h3 className="text-2xl md:text-3xl font-black text-slate-800 text-center flex items-center justify-center gap-2 leading-none">
+                                <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center print:shadow-none print:border-slate-800">
+                                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center print:text-slate-900">Cubic Feet Volume</p>
+                                    <h3 className="text-2xl md:text-3xl font-black text-slate-800 text-center flex items-center justify-center gap-2 leading-none print:text-black">
                                         <Icon name="box" size={20} className="text-blue-500 no-print" />
-                                        {calculations.totalCF.toFixed(2)} <span className="text-xs font-bold text-slate-400">CF</span>
+                                        {calculations.totalCF.toFixed(2)} <span className="text-xs font-bold text-slate-400 print:text-slate-600">CF</span>
                                     </h3>
-                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold tracking-tighter">Gross Lumber Volume</p>
+                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold tracking-tighter print:text-slate-600">Gross Lumber Volume</p>
                                 </div>
                             </div>
 
                             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
-                                <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-between bg-white print:px-0">
-                                    <h2 className="text-base md:text-lg font-bold flex items-center gap-2 text-slate-800">
-                                        <Icon name="table" className="text-emerald-600 flex-shrink-0" />
+                                <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-between bg-white print:px-0 print:border-slate-800">
+                                    <h2 className="text-base md:text-lg font-bold flex items-center gap-2 text-slate-800 print:text-black">
+                                        <Icon name="table" className="text-emerald-600 print:text-black flex-shrink-0" />
                                         Required Materials List ({parseFloat(trailLength) || 0} FT)
                                     </h2>
                                     <button 
@@ -385,32 +395,32 @@
                                 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">
-                                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-tighter text-[9px] md:text-[10px] print:bg-transparent print:border-b print:border-slate-300">
+                                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-tighter text-[9px] md:text-[10px] print:bg-slate-50 print:text-black print:border-b-2 print:border-black">
                                             <tr>
-                                                <th className="px-3 md:px-6 py-4 border-b">Component</th>
-                                                <th className="px-3 md:px-6 py-4 border-b text-center">Order Qty</th>
-                                                <th className="px-3 md:px-6 py-4 border-b text-right">Ext. Price</th>
+                                                <th className="px-3 md:px-6 py-4 border-b print:px-2">Component</th>
+                                                <th className="px-3 md:px-6 py-4 border-b text-center print:px-2">Order Qty</th>
+                                                <th className="px-3 md:px-6 py-4 border-b text-right print:px-2">Ext. Price</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 print:divide-slate-200">
-                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} pcs`} cost={calculations.costs.decking} />
-                                            <MaterialRow name="4x6 Supports" desc="3' pieces (12' units)" qty={`${calculations.supportItems} pcs`} cost={calculations.costs.support} />
-                                            <MaterialRow name="2x6 Shim Mat." desc="1' pieces (12' units)" qty={`${calculations.shimItems} pcs`} cost={calculations.costs.shim} />
-                                            <MaterialRow name="3&quot; Deck Screws" desc={`Incl. 15% buffer`} qty={`${calculations.screwItems} tub`} cost={calculations.costs.fastener} />
+                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} boards`} cost={calculations.costs.decking} />
+                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers`} cost={calculations.costs.support} />
+                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards`} cost={calculations.costs.shim} />
+                                            <MaterialRow name="3&quot; Deck Screws" desc={`Includes 15% extra`} qty={`${calculations.screwItems} tub`} cost={calculations.costs.fastener} />
                                         </tbody>
-                                        <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-transparent">
+                                        <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-white">
                                             <tr>
-                                                <td className="px-3 md:px-6 py-5 border-t text-[10px] font-bold uppercase tracking-widest text-slate-400 print:px-0">Total Estimate</td>
+                                                <td className="px-3 md:px-6 py-5 border-t text-[10px] font-bold uppercase tracking-widest text-slate-400 print:px-2 print:text-slate-800">Total Estimate</td>
                                                 <td className="border-t"></td>
-                                                <td className="px-3 md:px-6 py-5 text-right text-emerald-800 font-black text-lg md:text-xl border-t print:px-0 print:text-black">
+                                                <td className="px-3 md:px-6 py-5 text-right text-emerald-800 font-black text-lg md:text-xl border-t print:px-2 print:text-black print:border-t-2 print:border-black">
                                                     ${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}
                                                 </td>
                                             </tr>
                                         </tfoot>
                                     </table>
                                 </div>
-                                <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400 text-center">
-                                    Estimated using LTC Boardwalk Cost Estimator Tool • Support Spacing: 4'
+                                <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-[10px] text-slate-500 text-center uppercase font-bold tracking-widest">
+                                    Report generated by LTC Boardwalk Cost Estimator Tool • Support Spacing: 4'
                                 </div>
                             </section>
                         </div>
