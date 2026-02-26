@@ -58,6 +58,7 @@
             screws: "https://www.homedepot.com/s/3%20inch%20deck%20screws?NCNI-5"
         };
 
+        // Custom Inline Icons to prevent React removeChild errors
         const Icon = ({ name, size = 18, className = "" }) => {
             const icons = {
                 trees: <><path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z"/><circle cx="12" cy="19" r="2"/><path d="M19 13v.2a3 3 0 0 1-1.1 5.8h-3.9a3 3 0 0 1-1-5.8V13a3 3 0 0 1 6 0Z"/><path d="M14 22v-3"/><path d="M7 22v-3"/><path d="M12 10V2"/><path d="m9 5 3-3 3 3"/><path d="M12 19v-6"/></>,
@@ -139,9 +140,16 @@
                         attribution: 'Esri', crossOrigin: 'anonymous'
                     }).addTo(mapInstance.current);
 
+                    // Nature Preserves Layer
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/LTC_Nature_Preserves_2025/FeatureServer/0',
                         style: { color: '#10b981', weight: 2, opacity: 1, fillColor: '#10b981', fillOpacity: 0.2 }
+                    }).addTo(mapInstance.current);
+
+                    // Working Forest Layer
+                    L.esri.featureLayer({
+                        url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/WFR_2022/FeatureServer/0',
+                        style: { color: '#3b82f6', weight: 1.5, opacity: 0.9, fillColor: '#3b82f6', fillOpacity: 0.2 }
                     }).addTo(mapInstance.current);
 
                     // Resize observer to handle layout shifts
