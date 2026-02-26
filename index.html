@@ -168,12 +168,15 @@
                             style: { color: '#dc2626', weight: 5, opacity: 0.9 }
                         }).addTo(mapInstance.current);
 
-                        // Zoom to the uploaded track with some padding
+                        // CRITICAL: Invalidate map size to ensure container dimensions are correctly calculated
+                        // before calling fitBounds, which fixes issues in environments like GitHub Pages.
+                        mapInstance.current.invalidateSize();
+
                         const bounds = geoJsonLayer.current.getBounds();
                         if (bounds.isValid()) {
                             mapInstance.current.fitBounds(bounds, {
-                                padding: [30, 30],
-                                maxZoom: 16,
+                                padding: [40, 40],
+                                maxZoom: 17,
                                 animate: true
                             });
                         }
@@ -251,14 +254,14 @@
                 const shimItems = shimCount > 0 ? Math.ceil(shimCount / UNITS.shimLen) : 0; 
                 const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
 
-                // Sub-total calculations for correct extended pricing
+                // Correct Sub-total calculations (Quantity * Price)
                 const deckingTotalCost = deckingItems * costs.decking;
                 const supportTotalCost = supportItems * costs.support;
                 const shimTotalCost = shimItems * costs.shim;
                 const fastenerTotalCost = screwItems * costs.screws;
                 const totalCost = deckingTotalCost + supportTotalCost + shimTotalCost + fastenerTotalCost;
 
-                // BF Volume calculation
+                // BF Volume calculation based on purchased wood
                 const totalBF = ((2*10*(deckingItems*12)) + (4*6*(supportItems*12)) + (2*6*(shimItems*12))) / 12;
 
                 return {
