@@ -45,7 +45,9 @@
 
         const Icon = ({ name, size = 18, className = "" }) => {
             useEffect(() => {
-                lucide.createIcons();
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
@@ -111,38 +113,43 @@
                 const rawScrews = supportCount * 9;
                 const totalScrews = Math.ceil(rawScrews * screwSafetyBuffer); 
 
+                // Items to order (rounded up to purchase units)
                 const deckingItems = length > 0 ? Math.ceil(length / UNITS.deckingLen) * 3 : 0;
                 const supportItems = supportCount > 0 ? Math.ceil(supportCount / (UNITS.supportLen / 3)) : 0;
                 const shimItems = shimCount > 0 ? Math.ceil(shimCount / UNITS.shimLen) : 0; 
                 const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
 
+                // Volume logic (based on purchased units)
                 const deckingBF = (2 * 10 * (deckingItems * UNITS.deckingLen)) / 12;
                 const supportBF = (4 * 6 * (supportItems * UNITS.supportLen)) / 12;
                 const shimBF = (2 * 6 * (shimItems * UNITS.shimLen)) / 12;
                 const totalBF = deckingBF + supportBF + shimBF;
                 const totalCF = totalBF / 12;
 
-                const deckingCost = deckingItems * costs.decking;
-                const supportCost = supportItems * costs.support;
-                const shimCost = shimItems * costs.shim;
-                const fastenerCost = screwItems * costs.screws;
-                const totalCost = deckingCost + supportCost + shimCost + fastenerCost;
+                // Total Project Financials (Rounded up to full boards/tubs)
+                const deckingTotalCost = deckingItems * costs.decking;
+                const supportTotalCost = supportItems * costs.support;
+                const shimTotalCost = shimItems * costs.shim;
+                const fastenerTotalCost = screwItems * costs.screws;
+                const totalCost = deckingTotalCost + supportTotalCost + shimTotalCost + fastenerTotalCost;
 
                 return {
                     totalBF, totalCF, totalScrews,
                     deckingItems, supportItems, shimItems, screwItems,
                     costs: {
-                        decking: deckingCost,
-                        support: supportCost,
-                        shim: shimCost,
-                        fastener: fastenerCost,
+                        decking: deckingTotalCost,
+                        support: supportTotalCost,
+                        shim: shimTotalCost,
+                        fastener: fastenerTotalCost,
                         total: totalCost
                     }
                 };
             }, [trailLength, costs]);
 
             useEffect(() => {
-                lucide.createIcons();
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
             }, []);
 
             const handleCostChange = (key, val) => {
@@ -151,6 +158,8 @@
             };
 
             const handlePrint = () => window.print();
+
+            const trailLengthVal = parseFloat(trailLength) || 0;
 
             return (
                 <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-0">
@@ -172,6 +181,7 @@
                     </header>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Input Sidebar */}
                         <div className="lg:col-span-4 space-y-6 no-print">
                             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700">
@@ -208,13 +218,14 @@
                             </section>
                         </div>
 
+                        {/* Main Stats and List */}
                         <div className="lg:col-span-8 space-y-6 print:col-span-12 print:w-full">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
                                 <div className="bg-emerald-600 text-white p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-slate-900 print:border-slate-200 print:shadow-none">
                                     <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-1 print:text-slate-500">Total Project Cost</p>
                                     <h3 className="text-4xl font-black print:text-2xl">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
                                     <p className="text-emerald-200 text-xs mt-2 font-medium print:text-slate-400">
-                                       ${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per lin ft
+                                       ${(calculations.costs.total / (trailLengthVal || 1)).toFixed(2)} per lin ft
                                     </p>
                                 </div>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center print:shadow-none">
@@ -231,7 +242,7 @@
                                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white print:px-0">
                                     <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
                                         <Icon name="table" className="text-emerald-600" />
-                                        Required Materials List ({parseFloat(trailLength) || 0} FT Trail)
+                                        Required Materials List ({trailLengthVal} FT Trail)
                                     </h2>
                                     <div className="flex gap-2 no-print">
                                         <button 
