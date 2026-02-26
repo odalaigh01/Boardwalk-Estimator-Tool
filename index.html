@@ -31,14 +31,15 @@
                 print-color-adjust: exact !important;
             }
             .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
-            /* Ensure map is visible in print */
             .leaflet-control-container { display: none !important; }
             #map { 
                 height: 450px !important; 
                 width: 100% !important;
-                border: 2px solid #334155 !important;
+                border: 2px solid #1e293b !important;
                 break-inside: avoid;
                 margin-bottom: 0.5rem !important;
+                /* Force tiles to stay visible */
+                visibility: visible !important;
             }
             .print-legend {
                 display: flex !important;
@@ -48,15 +49,17 @@
                 color: black !important;
             }
             .text-slate-400, .text-slate-500, .text-emerald-100, .text-emerald-200 {
-                color: #334155 !important;
+                color: #1e293b !important;
             }
+            /* Darken headers for print */
+            h1, h2, th { color: black !important; }
         }
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
-        #map { height: 350px; width: 100%; border-radius: 0.75rem; }
+        #map { height: 350px; width: 100%; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
         @media (min-width: 768px) {
             #map { height: 400px; }
         }
@@ -122,7 +125,7 @@
                 <td className="px-3 md:px-6 py-4 print:pl-0">
                     <div>
                         <div className="font-bold text-slate-700 print:text-black text-xs md:text-sm">{name}</div>
-                        <div className="text-[9px] md:text-[10px] text-slate-400 print:text-slate-600 font-bold uppercase tracking-widest">{desc}</div>
+                        <div className="text-[9px] md:text-[10px] text-slate-400 print:text-slate-700 font-bold uppercase tracking-widest">{desc}</div>
                     </div>
                 </td>
                 <td className="px-3 md:px-6 py-4 text-center text-slate-600 font-medium font-mono text-xs md:text-sm print:text-black">{qty}</td>
@@ -140,14 +143,15 @@
             useEffect(() => {
                 if (!mapInstance.current) {
                     mapInstance.current = L.map('map', {
-                        preferCanvas: true
+                        preferCanvas: true,
+                        scrollWheelZoom: true
                     }).setView([45.4, -84.9], 9);
                     
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; OpenStreetMap',
                         detectRetina: true,
                         updateWhenIdle: false,
-                        keepBuffer: 4
+                        keepBuffer: 8 // Aggressive buffer for print
                     }).addTo(mapInstance.current);
 
                     L.esri.featureLayer({
@@ -168,9 +172,20 @@
                         return L.Util.template('<strong>Working Forest Reserve:</strong> {Name}', layer.feature.properties);
                     });
 
-                    // Fix for map tiles in print: ensure map refreshes when printing starts
-                    window.addEventListener('beforeprint', () => {
-                        mapInstance.current.invalidateSize();
+                    // Force map to recalculate and refill tiles when print media is triggered
+                    const refreshMapForPrint = () => {
+                        if (mapInstance.current) {
+                            mapInstance.current.invalidateSize({ animate: false });
+                            if (geoJsonLayer.current) {
+                                mapInstance.current.fitBounds(geoJsonLayer.current.getBounds(), { padding: [40, 40], animate: false });
+                            }
+                        }
+                    };
+
+                    window.addEventListener('beforeprint', refreshMapForPrint);
+                    // MatchMedia listener handles mobile/browser variations of print triggers
+                    window.matchMedia('print').addListener((mql) => {
+                        if (mql.matches) refreshMapForPrint();
                     });
                 }
             }, []);
@@ -375,7 +390,7 @@
                                 <div className="bg-emerald-600 text-white p-5 md:p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-black print:border-slate-800 print:shadow-none">
                                     <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-900">Total Project Cost</p>
                                     <h3 className="text-3xl md:text-4xl font-black print:text-3xl leading-none">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
-                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-800">
+                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-900">
                                        ${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per lin ft
                                     </p>
                                 </div>
@@ -383,9 +398,9 @@
                                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center print:text-slate-900">Cubic Feet Volume</p>
                                     <h3 className="text-2xl md:text-3xl font-black text-slate-800 text-center flex items-center justify-center gap-2 leading-none print:text-black">
                                         <Icon name="box" size={20} className="text-blue-500 no-print" />
-                                        {calculations.totalCF.toFixed(2)} <span className="text-xs font-bold text-slate-400 print:text-slate-600">CF</span>
+                                        {calculations.totalCF.toFixed(2)} <span className="text-xs font-bold text-slate-400 print:text-slate-700">CF</span>
                                     </h3>
-                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold tracking-tighter print:text-slate-600">Gross Lumber Volume</p>
+                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold tracking-tighter print:text-slate-700">Gross Lumber Volume</p>
                                 </div>
                             </div>
 
