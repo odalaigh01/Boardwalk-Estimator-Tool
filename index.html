@@ -32,15 +32,24 @@
             }
             .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
             .leaflet-control-container { display: none !important; }
+            
+            /* High priority print styles for Map Tiles */
             #map { 
                 height: 450px !important; 
                 width: 100% !important;
                 border: 2px solid #1e293b !important;
                 break-inside: avoid;
                 margin-bottom: 0.5rem !important;
-                /* Force tiles to stay visible */
                 visibility: visible !important;
+                display: block !important;
             }
+            .leaflet-tile-container img {
+                width: 256px !important;
+                height: 256px !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+
             .print-legend {
                 display: flex !important;
                 gap: 20px !important;
@@ -51,7 +60,6 @@
             .text-slate-400, .text-slate-500, .text-emerald-100, .text-emerald-200 {
                 color: #1e293b !important;
             }
-            /* Darken headers for print */
             h1, h2, th { color: black !important; }
         }
         input::-webkit-outer-spin-button,
@@ -135,7 +143,7 @@
             </tr>
         );
 
-        const BoardwalkMap = ({ onLengthCalculated }) => {
+        const BoardwalkMap = ({ onLengthCalculated, mapRef }) => {
             const mapInstance = useRef(null);
             const geoJsonLayer = useRef(null);
             const [fileName, setFileName] = useState("");
@@ -152,12 +160,14 @@
                         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community',
                         detectRetina: true,
                         updateWhenIdle: false,
-                        keepBuffer: 8
+                        crossOrigin: 'anonymous', // Fix for printing imagery
+                        keepBuffer: 12
                     }).addTo(mapInstance.current);
 
                     // Add reference labels (cities/roads) over the imagery
                     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-                        opacity: 0.7
+                        opacity: 0.8,
+                        crossOrigin: 'anonymous'
                     }).addTo(mapInstance.current);
 
                     L.esri.featureLayer({
@@ -178,19 +188,8 @@
                         return L.Util.template('<strong>Working Forest Reserve:</strong> {Name}', layer.feature.properties);
                     });
 
-                    const refreshMapForPrint = () => {
-                        if (mapInstance.current) {
-                            mapInstance.current.invalidateSize({ animate: false });
-                            if (geoJsonLayer.current) {
-                                mapInstance.current.fitBounds(geoJsonLayer.current.getBounds(), { padding: [40, 40], animate: false });
-                            }
-                        }
-                    };
-
-                    window.addEventListener('beforeprint', refreshMapForPrint);
-                    window.matchMedia('print').addListener((mql) => {
-                        if (mql.matches) refreshMapForPrint();
-                    });
+                    // Assign to external ref for parent control
+                    if (mapRef) mapRef.current = mapInstance.current;
                 }
             }, []);
 
@@ -211,7 +210,7 @@
 
                         // Use a high-contrast color (Bright Red) for the track over imagery
                         geoJsonLayer.current = L.geoJSON(geojson, {
-                            style: { color: '#ff0000', weight: 5, opacity: 1, dashArray: '1' }
+                            style: { color: '#ff0000', weight: 5, opacity: 1 }
                         }).addTo(mapInstance.current);
 
                         mapInstance.current.invalidateSize();
@@ -274,6 +273,7 @@
 
         const App = () => {
             const [trailLength, setTrailLength] = useState(100);
+            const mapRef = useRef(null);
             const [costs, setCosts] = useState({
                 decking: 26.08,
                 support: 33.88,
@@ -288,13 +288,12 @@
             const calculations = useMemo(() => {
                 const length = parseFloat(trailLength) || 0;
                 const supportCount = length > 0 ? Math.ceil(length / supportSpacing) + 1 : 0;
-                const shimCount = supportCount * avgShimsPerSupport;
                 const rawScrews = supportCount * 9;
                 const totalScrews = Math.ceil(rawScrews * screwSafetyBuffer); 
 
                 const deckingItems = length > 0 ? Math.ceil(length / UNITS.deckingLen) * 3 : 0;
                 const supportItems = supportCount > 0 ? Math.ceil(supportCount / (UNITS.supportLen / 3)) : 0;
-                const shimItems = shimCount > 0 ? Math.ceil(shimCount / UNITS.shimLen) : 0; 
+                const shimItems = (supportCount * avgShimsPerSupport) > 0 ? Math.ceil((supportCount * avgShimsPerSupport) / UNITS.shimLen) : 0; 
                 const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
 
                 const deckingTotalCost = deckingItems * costs.decking;
@@ -330,7 +329,24 @@
                 setCosts(prev => ({ ...prev, [key]: isNaN(numericValue) ? 0 : numericValue }));
             };
 
-            const handlePrint = () => window.print();
+            const handlePrint = () => {
+                if (mapRef.current) {
+                    // Capture current view to preserve scale
+                    const center = mapRef.current.getCenter();
+                    const zoom = mapRef.current.getZoom();
+                    
+                    // Sync the container size for the print dimensions
+                    mapRef.current.invalidateSize({ animate: false });
+                    mapRef.current.setView(center, zoom, { animate: false });
+                    
+                    // Small delay to let imagery tiles load for the new print container size
+                    setTimeout(() => {
+                        window.print();
+                    }, 500);
+                } else {
+                    window.print();
+                }
+            };
 
             return (
                 <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-4 print:max-w-none">
@@ -354,7 +370,7 @@
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
                         {/* Column 1: Map & Inputs */}
                         <div className="lg:col-span-4 space-y-6 print:col-span-12 print:w-full">
-                            <BoardwalkMap onLengthCalculated={setTrailLength} />
+                            <BoardwalkMap onLengthCalculated={setTrailLength} mapRef={mapRef} />
                             
                             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 no-print">
                                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700">
@@ -434,9 +450,9 @@
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 print:divide-slate-200">
-                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} boards`} cost={calculations.costs.decking} />
-                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers`} cost={calculations.costs.support} />
-                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards`} cost={calculations.costs.shim} />
+                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} boards`} cost={calculations.costs.decking * calculations.deckingItems} />
+                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers`} cost={calculations.costs.support * calculations.supportItems} />
+                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards`} cost={calculations.costs.shim * calculations.shimItems} />
                                             <MaterialRow name="3&quot; Deck Screws" desc={`Includes 15% extra`} qty={`${calculations.screwItems} tub`} cost={calculations.costs.fastener} />
                                         </tbody>
                                         <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-white">
