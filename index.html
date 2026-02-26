@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LTC Boardwalk Cost Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white !important; }
+            .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans print:bg-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        const UNITS = {
+            deckingLen: 12,
+            supportLen: 12,
+            shimLen: 12,
+            boxQty: 1543
+        };
+
+        const HD_LINKS = {
+            decking: "https://www.homedepot.com/s/2x10%20pressure%20treated%20lumber?NCNI-5",
+            support: "https://www.homedepot.com/s/4x6%2012ft%20pressure%20treated%20timber?NCNI-5",
+            shim: "https://www.homedepot.com/s/2x6%2012ft%20pressure%20treated%20lumber?NCNI-5",
+            screws: "https://www.homedepot.com/s/3%20inch%20deck%20screws?NCNI-5"
+        };
+
+        const Icon = ({ name, size = 18, className = "" }) => {
+            useEffect(() => {
+                lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const PriceInput = ({ label, value, onChange, link }) => (
+            <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</label>
+                    <a 
+                        href={link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] flex items-center gap-1 text-orange-600 font-bold hover:text-orange-700 transition-colors uppercase"
+                    >
+                        Live Price <i data-lucide="external-link" style={{ width: 10, height: 10 }}></i>
+                    </a>
+                </div>
+                <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">$</span>
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        value={value} 
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-right font-mono font-bold outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/50 transition-all"
+                    />
+                </div>
+            </div>
+        );
+
+        const MaterialRow = ({ name, desc, qty, cost }) => (
+            <tr className="group transition-colors hover:bg-slate-50/50 print:hover:bg-transparent">
+                <td className="px-6 py-4 print:px-0">
+                    <div>
+                        <div className="font-bold text-slate-700 print:text-black">{name}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{desc}</div>
+                    </div>
+                </td>
+                <td className="px-6 py-4 text-center text-slate-600 font-medium font-mono print:text-black print:px-0">{qty}</td>
+                <td className="px-6 py-4 text-right font-bold text-slate-700 print:text-black print:px-0">
+                    ${(cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </td>
+            </tr>
+        );
+
+        const App = () => {
+            const [trailLength, setTrailLength] = useState(100);
+            const [costs, setCosts] = useState({
+                decking: 26.08,
+                support: 33.88,
+                shim: 12.75,
+                screws: 94.97,
+            });
+
+            const supportSpacing = 4;
+            const avgShimsPerSupport = 2;
+            const screwSafetyBuffer = 1.15;
+
+            const calculations = useMemo(() => {
+                const length = parseFloat(trailLength) || 0;
+                const supportCount = length > 0 ? Math.ceil(length / supportSpacing) + 1 : 0;
+                const shimCount = supportCount * avgShimsPerSupport;
+                const rawScrews = supportCount * 9;
+                const totalScrews = Math.ceil(rawScrews * screwSafetyBuffer); 
+
+                const deckingItems = length > 0 ? Math.ceil(length / UNITS.deckingLen) * 3 : 0;
+                const supportItems = supportCount > 0 ? Math.ceil(supportCount / (UNITS.supportLen / 3)) : 0;
+                const shimItems = shimCount > 0 ? Math.ceil(shimCount / UNITS.shimLen) : 0; 
+                const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
+
+                const deckingBF = (2 * 10 * (deckingItems * UNITS.deckingLen)) / 12;
+                const supportBF = (4 * 6 * (supportItems * UNITS.supportLen)) / 12;
+                const shimBF = (2 * 6 * (shimItems * UNITS.shimLen)) / 12;
+                const totalBF = deckingBF + supportBF + shimBF;
+                const totalCF = totalBF / 12;
+
+                const deckingCost = deckingItems * costs.decking;
+                const supportCost = supportItems * costs.support;
+                const shimCost = shimItems * costs.shim;
+                const fastenerCost = screwItems * costs.screws;
+                const totalCost = deckingCost + supportCost + shimCost + fastenerCost;
+
+                return {
+                    totalBF, totalCF, totalScrews,
+                    deckingItems, supportItems, shimItems, screwItems,
+                    costs: {
+                        decking: deckingCost,
+                        support: supportCost,
+                        shim: shimCost,
+                        fastener: fastenerCost,
+                        total: totalCost
+                    }
+                };
+            }, [trailLength, costs]);
+
+            useEffect(() => {
+                lucide.createIcons();
+            }, []);
+
+            const handleCostChange = (key, val) => {
+                const numericValue = parseFloat(val);
+                setCosts(prev => ({ ...prev, [key]: isNaN(numericValue) ? 0 : numericValue }));
+            };
+
+            const handlePrint = () => window.print();
+
+            return (
+                <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-0">
+                    <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:mb-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-emerald-900 flex items-center gap-2">
+                                <Icon name="trees" size={32} className="text-emerald-600 print:text-emerald-700" />
+                                LTC Boardwalk Cost Estimator
+                            </h1>
+                        </div>
+                        <div className="no-print">
+                            <button 
+                                onClick={handlePrint}
+                                className="px-6 py-2.5 bg-emerald-600 border border-emerald-700 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm"
+                            >
+                                <Icon name="printer" /> PRINT MATERIALS LIST
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div className="lg:col-span-4 space-y-6 no-print">
+                            <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700">
+                                    <Icon name="settings" className="text-slate-400" />
+                                    Project Size
+                                </h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Trail Length (Linear Feet)</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                value={trailLength} 
+                                                onChange={(e) => setTrailLength(e.target.value)}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition-all pl-10 font-bold"
+                                            />
+                                            <div className="absolute left-3 top-2.5 text-slate-400 font-mono text-sm">FT</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700">
+                                    <Icon name="dollar-sign" className="text-slate-400" />
+                                    Price per Item
+                                </h2>
+                                <div className="space-y-5">
+                                    <PriceInput label="2x10x12' Board ($)" value={costs.decking} link={HD_LINKS.decking} onChange={(v) => handleCostChange('decking', v)} />
+                                    <PriceInput label="4x6x12' Timber ($)" value={costs.support} link={HD_LINKS.support} onChange={(v) => handleCostChange('support', v)} />
+                                    <PriceInput label="2x6x12' Board ($)" value={costs.shim} link={HD_LINKS.shim} onChange={(v) => handleCostChange('shim', v)} />
+                                    <PriceInput label="3&quot; Deck Screw Tub ($)" value={costs.screws} link={HD_LINKS.screws} onChange={(v) => handleCostChange('screws', v)} />
+                                </div>
+                            </section>
+                        </div>
+
+                        <div className="lg:col-span-8 space-y-6 print:col-span-12 print:w-full">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
+                                <div className="bg-emerald-600 text-white p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-slate-900 print:border-slate-200 print:shadow-none">
+                                    <p className="text-emerald-100 text-xs font-bold uppercase tracking-widest mb-1 print:text-slate-500">Total Project Cost</p>
+                                    <h3 className="text-4xl font-black print:text-2xl">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h3>
+                                    <p className="text-emerald-200 text-xs mt-2 font-medium print:text-slate-400">
+                                       ${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per lin ft
+                                    </p>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center print:shadow-none">
+                                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1 text-center">Cubic Feet Volume</p>
+                                    <h3 className="text-3xl font-black text-slate-800 text-center flex items-center justify-center gap-2 print:text-xl">
+                                        <Icon name="box" size={24} className="text-blue-500 no-print" />
+                                        {calculations.totalCF.toFixed(2)} <span className="text-sm font-bold text-slate-400">CF</span>
+                                    </h3>
+                                    <p className="text-slate-400 text-[10px] mt-2 text-center uppercase font-bold tracking-tighter">Gross Lumber Volume</p>
+                                </div>
+                            </div>
+
+                            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-full">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white print:px-0">
+                                    <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                                        <Icon name="table" className="text-emerald-600" />
+                                        Required Materials List ({parseFloat(trailLength) || 0} FT Trail)
+                                    </h2>
+                                    <div className="flex gap-2 no-print">
+                                        <button 
+                                            onClick={() => setTrailLength(100)}
+                                            className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-1.5"
+                                        >
+                                            <Icon name="refresh-cw" size={14} /> RESET
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm border-collapse">
+                                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-tighter text-[11px] print:bg-transparent print:border-b print:border-slate-300">
+                                            <tr>
+                                                <th className="px-6 py-4 border-b">Component</th>
+                                                <th className="px-6 py-4 border-b text-center">Order Quantity</th>
+                                                <th className="px-6 py-4 border-b text-right">Ext. Price</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50 print:divide-slate-200">
+                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Parallel Rows (Full length)" qty={`${calculations.deckingItems} boards (12')`} cost={calculations.costs.decking * calculations.deckingItems} />
+                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers (12')`} cost={calculations.costs.support * calculations.supportItems} />
+                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards (12')`} cost={calculations.costs.shim * calculations.shimItems} />
+                                            <MaterialRow name="3&quot; Deck Screws" desc={`${calculations.totalScrews} screws (includes 15% extra)`} qty={`${calculations.screwItems} tub (1543 ct)`} cost={calculations.costs.fastener} />
+                                        </tbody>
+                                        <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-transparent">
+                                            <tr>
+                                                <td className="px-6 py-5 border-t text-sm font-bold uppercase tracking-widest text-slate-400 print:px-0">Total Project Estimate</td>
+                                                <td className="border-t"></td>
+                                                <td className="px-6 py-5 text-right text-emerald-800 font-black text-xl border-t print:px-0 print:text-black">
+                                                    ${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400 text-center">
+                                    Estimated using LTC Boardwalk Cost Estimator Tool • Support Spacing: 4'
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
