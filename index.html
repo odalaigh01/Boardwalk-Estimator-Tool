@@ -59,7 +59,7 @@
             -webkit-appearance: none;
             margin: 0;
         }
-        #map { height: 350px; width: 100%; border-radius: 0.75rem; border: 1px solid #e2e8f0; }
+        #map { height: 350px; width: 100%; border-radius: 0.75rem; border: 1px solid #e2e8f0; background: #f1f5f9; }
         @media (min-width: 768px) {
             #map { height: 400px; }
         }
@@ -81,7 +81,7 @@
         const HD_LINKS = {
             decking: "https://www.homedepot.com/s/2x10%20pressure%20treated%20lumber?NCNI-5",
             support: "https://www.homedepot.com/s/4x6%2012ft%20pressure%20treated%20timber?NCNI-5",
-            shim: "https://www.homedepot.com/s/2x6%20pressure%20treated%20lumber?NCNI-5",
+            shim: "https://www.homedepot.com/s/2x6%2012ft%20pressure%20treated%20lumber?NCNI-5",
             screws: "https://www.homedepot.com/s/3%20inch%20deck%20screws?NCNI-5"
         };
 
@@ -147,17 +147,23 @@
                         scrollWheelZoom: true
                     }).setView([45.4, -84.9], 9);
                     
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; OpenStreetMap',
+                    // Aerial Photography Base Map (Esri World Imagery)
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community',
                         detectRetina: true,
                         updateWhenIdle: false,
-                        keepBuffer: 8 // Aggressive buffer for print
+                        keepBuffer: 8
+                    }).addTo(mapInstance.current);
+
+                    // Add reference labels (cities/roads) over the imagery
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                        opacity: 0.7
                     }).addTo(mapInstance.current);
 
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/LTC_Nature_Preserves_2025/FeatureServer/0',
                         style: {
-                            color: '#059669', weight: 2, opacity: 0.8, fillColor: '#10b981', fillOpacity: 0.3
+                            color: '#10b981', weight: 2.5, opacity: 1, fillColor: '#10b981', fillOpacity: 0.3
                         }
                     }).addTo(mapInstance.current).bindPopup(function (layer) {
                         return L.Util.template('<strong>Preserve:</strong> {Preserve_Name}', layer.feature.properties);
@@ -166,13 +172,12 @@
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/WFR_2022/FeatureServer/0',
                         style: {
-                            color: '#1e3a8a', weight: 1, opacity: 0.7, fillColor: '#3b82f6', fillOpacity: 0.2
+                            color: '#3b82f6', weight: 1.5, opacity: 0.9, fillColor: '#3b82f6', fillOpacity: 0.2
                         }
                     }).addTo(mapInstance.current).bindPopup(function (layer) {
                         return L.Util.template('<strong>Working Forest Reserve:</strong> {Name}', layer.feature.properties);
                     });
 
-                    // Force map to recalculate and refill tiles when print media is triggered
                     const refreshMapForPrint = () => {
                         if (mapInstance.current) {
                             mapInstance.current.invalidateSize({ animate: false });
@@ -183,7 +188,6 @@
                     };
 
                     window.addEventListener('beforeprint', refreshMapForPrint);
-                    // MatchMedia listener handles mobile/browser variations of print triggers
                     window.matchMedia('print').addListener((mql) => {
                         if (mql.matches) refreshMapForPrint();
                     });
@@ -205,8 +209,9 @@
                             mapInstance.current.removeLayer(geoJsonLayer.current);
                         }
 
+                        // Use a high-contrast color (Bright Red) for the track over imagery
                         geoJsonLayer.current = L.geoJSON(geojson, {
-                            style: { color: '#dc2626', weight: 5, opacity: 0.9 }
+                            style: { color: '#ff0000', weight: 5, opacity: 1, dashArray: '1' }
                         }).addTo(mapInstance.current);
 
                         mapInstance.current.invalidateSize();
