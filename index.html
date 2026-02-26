@@ -31,10 +31,12 @@
                 print-color-adjust: exact !important;
             }
             .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
+            /* Ensure map is visible in print */
             .leaflet-control-container { display: none !important; }
             #map { 
-                height: 400px !important; 
-                border: 2px solid #334155 !important; /* Darker border for print */
+                height: 450px !important; 
+                width: 100% !important;
+                border: 2px solid #334155 !important;
                 break-inside: avoid;
                 margin-bottom: 0.5rem !important;
             }
@@ -45,7 +47,6 @@
                 margin-bottom: 25px !important;
                 color: black !important;
             }
-            /* Darken text for print legibility */
             .text-slate-400, .text-slate-500, .text-emerald-100, .text-emerald-200 {
                 color: #334155 !important;
             }
@@ -138,10 +139,15 @@
 
             useEffect(() => {
                 if (!mapInstance.current) {
-                    mapInstance.current = L.map('map').setView([45.4, -84.9], 9);
+                    mapInstance.current = L.map('map', {
+                        preferCanvas: true
+                    }).setView([45.4, -84.9], 9);
                     
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; OpenStreetMap'
+                        attribution: '&copy; OpenStreetMap',
+                        detectRetina: true,
+                        updateWhenIdle: false,
+                        keepBuffer: 4
                     }).addTo(mapInstance.current);
 
                     L.esri.featureLayer({
@@ -160,6 +166,11 @@
                         }
                     }).addTo(mapInstance.current).bindPopup(function (layer) {
                         return L.Util.template('<strong>Working Forest Reserve:</strong> {Name}', layer.feature.properties);
+                    });
+
+                    // Fix for map tiles in print: ensure map refreshes when printing starts
+                    window.addEventListener('beforeprint', () => {
+                        mapInstance.current.invalidateSize();
                     });
                 }
             }, []);
