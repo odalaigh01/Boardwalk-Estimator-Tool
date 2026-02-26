@@ -28,11 +28,13 @@
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         
         #map { 
-            height: 300px; 
+            height: 350px; 
             width: 100%; 
             border-radius: 0.75rem; 
             border: 1px solid #e2e8f0; 
             background: #f1f5f9;
+            /* Remove transitions from map container itself to prevent coordinate calculation errors */
+            transition: none !important;
         }
 
         /* Report Mode Transitions */
@@ -56,7 +58,6 @@
             screws: "https://www.homedepot.com/s/3%20inch%20deck%20screws?NCNI-5"
         };
 
-        // Custom Inline Icons to prevent React removeChild errors
         const Icon = ({ name, size = 18, className = "" }) => {
             const icons = {
                 trees: <><path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z"/><circle cx="12" cy="19" r="2"/><path d="M19 13v.2a3 3 0 0 1-1.1 5.8h-3.9a3 3 0 0 1-1-5.8V13a3 3 0 0 1 6 0Z"/><path d="M14 22v-3"/><path d="M7 22v-3"/><path d="M12 10V2"/><path d="m9 5 3-3 3 3"/><path d="M12 19v-6"/></>,
@@ -124,7 +125,16 @@
             useEffect(() => {
                 const mapEl = document.getElementById('map');
                 if (!mapInstance.current && mapEl) {
-                    mapInstance.current = L.map('map', { preferCanvas: true }).setView([45.4, -84.9], 9);
+                    // Optimized Leaflet options for smooth zooming
+                    mapInstance.current = L.map('map', { 
+                        preferCanvas: true,
+                        zoomSnap: 1,
+                        zoomDelta: 1,
+                        wheelPxPerZoomLevel: 60,
+                        zoomAnimation: true,
+                        fadeAnimation: true
+                    }).setView([45.4, -84.9], 9);
+
                     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         attribution: 'Esri', crossOrigin: 'anonymous'
                     }).addTo(mapInstance.current);
@@ -133,6 +143,14 @@
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/LTC_Nature_Preserves_2025/FeatureServer/0',
                         style: { color: '#10b981', weight: 2, opacity: 1, fillColor: '#10b981', fillOpacity: 0.2 }
                     }).addTo(mapInstance.current);
+
+                    // Resize observer to handle layout shifts
+                    const resizeObserver = new ResizeObserver(() => {
+                        if (mapInstance.current) {
+                            mapInstance.current.invalidateSize();
+                        }
+                    });
+                    resizeObserver.observe(mapEl);
                 }
 
                 return () => {
@@ -228,7 +246,7 @@
                         <div className="no-print flex gap-2 w-full md:w-auto">
                             {reportMode ? (
                                 <>
-                                    <button onClick={() => toggleReport(false)} className="flex-1 md:w-auto px-4 py-2.5 bg-slate-200 text-slate-800 rounded-xl text-sm font-bold hover:bg-slate-300">
+                                    <button onClick={() => toggleReport(false)} className="flex-1 md:w-auto px-4 py-2.5 bg-slate-200 text-slate-800 rounded-xl text-sm font-bold hover:bg-slate-300 transition-all">
                                         EDIT
                                     </button>
                                     <button onClick={() => window.print()} className="flex-1 md:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg flex items-center justify-center gap-2">
@@ -236,7 +254,7 @@
                                     </button>
                                 </>
                             ) : (
-                                <button onClick={() => toggleReport(true)} className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 border border-emerald-700 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 shadow-sm flex items-center justify-center gap-2">
+                                <button onClick={() => toggleReport(true)} className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 border border-emerald-700 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 shadow-sm flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95">
                                     <Icon name="file-text" /> GENERATE REPORT
                                 </button>
                             )}
@@ -252,7 +270,7 @@
                                 <label className="block text-sm font-medium text-slate-700 mb-1 text-xs uppercase tracking-tight">Trail Length (Feet)</label>
                                 <div className="relative">
                                     <input type="number" value={trailLength} onChange={(e) => setTrailLength(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold transition-all" />
-                                    <div className="absolute right-3 top-2.5 text-slate-400 font-mono text-xs">FT</div>
+                                    <div className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">FT</div>
                                 </div>
                             </section>
                             
