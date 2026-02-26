@@ -12,7 +12,6 @@
     <!-- Mapping and Geospatial Libraries -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Esri Leaflet for ArcGIS Services -->
     <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
     <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
@@ -38,12 +37,13 @@
             background: #f1f5f9;
         }
 
-        /* Report Mode Styles */
-        .report-view .sidebar { display: none; }
-        .report-view .main-content { grid-column: span 12 / span 12; width: 100%; max-width: 800px; margin: 0 auto; }
+        /* Report Mode Transitions */
+        .report-view .sidebar { display: none !important; }
+        .report-view .main-content { grid-column: span 12 / span 12; width: 100%; max-width: 900px; margin: 0 auto; }
+        .report-view .main-container { max-width: 1000px; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body class="bg-slate-50 text-slate-900 font-sans transition-colors duration-500">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -59,7 +59,9 @@
         };
 
         const Icon = ({ name, size = 18, className = "" }) => {
-            useEffect(() => { lucide?.createIcons(); }, [name]);
+            useEffect(() => { 
+                if (window.lucide) window.lucide.createIcons(); 
+            }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
@@ -67,7 +69,7 @@
             <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</label>
-                    <a href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-orange-600 font-bold uppercase">
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-orange-600 font-bold uppercase hover:underline">
                         Live Price <Icon name="external-link" size={10} />
                     </a>
                 </div>
@@ -80,10 +82,10 @@
         );
 
         const MaterialRow = ({ name, desc, qty, cost }) => (
-            <tr className="group transition-colors hover:bg-slate-50/50 print:border-b print:border-slate-100">
+            <tr className="group transition-colors hover:bg-slate-50/50 border-b border-slate-50 last:border-0 print:border-slate-200">
                 <td className="px-3 md:px-6 py-4 print:pl-0">
                     <div className="font-bold text-slate-700 print:text-black text-xs md:text-sm">{name}</div>
-                    <div className="text-[9px] md:text-[10px] text-slate-400 print:text-slate-700 font-bold uppercase">{desc}</div>
+                    <div className="text-[9px] md:text-[10px] text-slate-400 print:text-slate-600 font-bold uppercase tracking-tight">{desc}</div>
                 </td>
                 <td className="px-3 md:px-6 py-4 text-center text-slate-600 font-medium font-mono text-xs md:text-sm print:text-black">{qty}</td>
                 <td className="px-3 md:px-6 py-4 text-right font-bold text-slate-700 print:text-black print:pr-0 text-xs md:text-sm">
@@ -100,10 +102,8 @@
             useEffect(() => {
                 if (!mapInstance.current) {
                     mapInstance.current = L.map('map', { preferCanvas: true }).setView([45.4, -84.9], 9);
-                    
                     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: 'Esri',
-                        crossOrigin: 'anonymous'
+                        attribution: 'Esri', crossOrigin: 'anonymous'
                     }).addTo(mapInstance.current);
 
                     L.esri.featureLayer({
@@ -122,7 +122,7 @@
                     try {
                         const geojson = await shp(ev.target.result);
                         if (geoJsonLayer.current) mapInstance.current.removeLayer(geoJsonLayer.current);
-                        geoJsonLayer.current = L.geoJSON(geojson, { style: { color: '#ff0000', weight: 4, opacity: 1 } }).addTo(mapInstance.current);
+                        geoJsonLayer.current = L.geoJSON(geojson, { style: { color: '#ef4444', weight: 4 } }).addTo(mapInstance.current);
                         mapInstance.current.fitBounds(geoJsonLayer.current.getBounds(), { padding: [20, 20] });
                         onLengthCalculated(Math.round(turf.length(geojson, { units: 'kilometers' }) * 3280.84));
                     } catch (err) { alert("Error parsing zipped shapefile."); }
@@ -134,15 +134,15 @@
                 <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                     <div className="flex items-center justify-between mb-3 border-b pb-2">
                         <h2 className="text-sm font-bold flex items-center gap-2 text-slate-700">
-                            <Icon name="map" size={16} className="text-emerald-600" /> Track Calc
+                            <Icon name="map" size={16} className="text-emerald-600" /> GIS Calculator
                         </h2>
-                        <label className="cursor-pointer bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors border border-emerald-100">
-                            UPLOAD .ZIP
+                        <label className="cursor-pointer bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-emerald-100 border border-emerald-100">
+                            UPLOAD ZIP
                             <input type="file" className="hidden" accept=".zip" onChange={handleFileUpload} />
                         </label>
                     </div>
-                    <div id="map" className="z-0 overflow-hidden shadow-inner"></div>
-                    {fileName && <p className="text-[10px] text-emerald-700 font-bold uppercase mt-2">Loaded: {fileName}</p>}
+                    <div id="map" className="z-0 overflow-hidden shadow-inner bg-slate-100"></div>
+                    {fileName && <p className="text-[10px] text-emerald-700 font-bold uppercase mt-2">Active: {fileName}</p>}
                 </section>
             );
         };
@@ -158,6 +158,8 @@
                 const totalScrews = Math.ceil((supportCount * 9) * 1.15);
                 const screwTubs = Math.ceil(totalScrews / UNITS.boxQty);
                 const decking = len > 0 ? Math.ceil(len / 12) * 3 : 0;
+                
+                // Ground Supports: 4 pieces (3' each) per 12' timber
                 const totalSupportTimbers = supportCount > 0 ? Math.ceil(supportCount / 4) : 0;
                 const shim = supportCount > 0 ? Math.ceil((supportCount * 2) / 12) : 0;
                 
@@ -175,26 +177,32 @@
 
             const handleCostChange = (k, v) => { const n = parseFloat(v); setCosts(p => ({ ...p, [k]: isNaN(n) ? 0 : n })); };
 
+            const toggleReport = (val) => {
+                setReportMode(val);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
             return (
-                <div className={`p-4 md:p-8 max-w-6xl mx-auto transition-all ${reportMode ? 'report-view' : ''}`}>
+                <div className={`p-4 md:p-8 transition-all duration-300 main-container mx-auto ${reportMode ? 'report-view' : 'max-w-6xl'}`}>
                     <header className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:mb-4 print:border-slate-800">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-bold text-emerald-900 flex items-center gap-2 leading-tight print:text-black">
                                 <Icon name="trees" size={32} className="text-emerald-600 print:text-black" /> LTC Boardwalk Cost Estimator
                             </h1>
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1 print:hidden">Professional Materials Forecasting</p>
                         </div>
                         <div className="no-print flex gap-2 w-full md:w-auto">
                             {reportMode ? (
                                 <>
-                                    <button onClick={() => setReportMode(false)} className="flex-1 md:w-auto px-4 py-2.5 bg-slate-200 text-slate-800 rounded-xl text-sm font-bold hover:bg-slate-300 transition-all">
+                                    <button onClick={() => toggleReport(false)} className="flex-1 md:w-auto px-4 py-2.5 bg-slate-200 text-slate-800 rounded-xl text-sm font-bold hover:bg-slate-300 transition-colors">
                                         BACK TO EDITOR
                                     </button>
-                                    <button onClick={() => window.print()} className="flex-1 md:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg flex items-center justify-center gap-2">
-                                        <Icon name="printer" /> PRINT
+                                    <button onClick={() => window.print()} className="flex-1 md:w-auto px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95">
+                                        <Icon name="printer" /> PRINT REPORT
                                     </button>
                                 </>
                             ) : (
-                                <button onClick={() => setReportMode(true)} className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 border border-emerald-700 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 shadow-sm flex items-center justify-center gap-2 transition-all">
+                                <button onClick={() => toggleReport(true)} className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 border border-emerald-700 rounded-xl text-sm font-bold text-white hover:bg-emerald-700 shadow-sm flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95">
                                     <Icon name="file-text" /> GENERATE REPORT
                                 </button>
                             )}
@@ -202,12 +210,13 @@
                     </header>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-                        <div className="lg:col-span-4 sidebar space-y-4">
+                        {/* Sidebar: Only visible in Editor Mode */}
+                        <div className="lg:col-span-4 sidebar space-y-4 no-print">
                             <BoardwalkMap onLengthCalculated={setTrailLength} />
                             
                             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700"><Icon name="settings" className="text-slate-400" /> Project Size</h2>
-                                <label className="block text-sm font-medium text-slate-700 mb-1 text-xs uppercase">Trail Length (Feet)</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1 text-xs uppercase tracking-tight">Manual Length Adjustment</label>
                                 <div className="relative">
                                     <input type="number" value={trailLength} onChange={(e) => setTrailLength(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-bold transition-all" />
                                     <div className="absolute right-3 top-2.5 text-slate-400 font-mono text-xs">FT</div>
@@ -225,41 +234,76 @@
                             </section>
                         </div>
 
+                        {/* Content Area: Expands to full width in Report Mode */}
                         <div className="main-content lg:col-span-8 space-y-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-4">
                                 <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-black print:border-slate-800 print:shadow-none">
-                                    <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-900">Total Project Cost</p>
-                                    <h3 className="text-3xl font-black print:text-3xl leading-none">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</h3>
-                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-800">${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per lin ft</p>
+                                    <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-900">Total Project Estimate</p>
+                                    <h3 className="text-3xl font-black print:text-3xl leading-none tracking-tight">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</h3>
+                                    <p className="text-emerald-200 text-[10px] mt-2 font-medium print:text-slate-800">${(calculations.costs.total / (parseFloat(trailLength) || 1)).toFixed(2)} per linear foot</p>
                                 </div>
                                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center print:border-slate-800 print:shadow-none">
                                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center print:text-slate-900">Cubic Feet Volume</p>
                                     <h3 className="text-2xl md:text-3xl font-black text-slate-800 text-center leading-none print:text-black">{calculations.totalCF.toFixed(2)} <span className="text-xs font-bold text-slate-400">CF</span></h3>
-                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold print:text-slate-700">Gross Lumber Volume</p>
+                                    <p className="text-slate-400 text-[9px] mt-2 text-center uppercase font-bold print:text-slate-700 tracking-tighter">Gross Pressure Treated Volume</p>
                                 </div>
                             </div>
 
                             <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:border-none print:shadow-none">
                                 <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-between bg-white print:px-0 print:border-slate-800">
                                     <h2 className="text-base md:text-lg font-bold flex items-center gap-2 text-slate-800 print:text-black">
-                                        <Icon name="table" className="text-emerald-600 print:text-black" /> Required Materials Breakdown ({parseFloat(trailLength) || 0} FT)
+                                        <Icon name="table" className="text-emerald-600 print:text-black" /> Bill of Materials ({parseFloat(trailLength) || 0} FT)
                                     </h2>
                                 </div>
-                                <table className="w-full text-left border-collapse">
-                                    <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-tighter text-[9px] md:text-[10px] print:text-black print:border-b-2 print:border-black">
-                                        <tr><th className="px-3 md:px-6 py-4 border-b">Component</th><th className="px-3 md:px-6 py-4 border-b text-center">Qty</th><th className="px-3 md:px-6 py-4 border-b text-right">Ext. Price</th></tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50 print:divide-slate-200">
-                                        <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.decking} boards`} cost={calculations.costs.decking} />
-                                        <MaterialRow name="4x6 Ground Supports" desc="3ft chunks cut from 12ft timbers" qty={`${calculations.supportCount} chunks (${calculations.totalSupportTimbers} timbers)`} cost={calculations.costs.support} />
-                                        <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shim} boards`} cost={calculations.costs.shim} />
-                                        <MaterialRow name="3&quot; Deck Screws" desc={`${calculations.totalScrews} screws (incl. 15% extra)`} qty={`${calculations.screwTubs} tub`} cost={calculations.costs.fastener} />
-                                    </tbody>
-                                    <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-white">
-                                        <tr><td className="px-3 md:px-6 py-5 border-t text-[10px] font-bold uppercase text-slate-400">Total Estimate</td><td className="border-t"></td><td className="px-3 md:px-6 py-5 text-right text-emerald-800 font-black text-lg md:text-xl border-t print:text-black print:border-t-2 print:border-black">${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</td></tr>
-                                    </tfoot>
-                                </table>
-                                <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-[10px] text-slate-500 text-center uppercase font-bold">Report generated by LTC Boardwalk Cost Estimator Tool • Values based on 4' Spacing</div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-tighter text-[9px] md:text-[10px] print:text-black print:border-b-2 print:border-black">
+                                            <tr>
+                                                <th className="px-3 md:px-6 py-4 border-b">Material Component</th>
+                                                <th className="px-3 md:px-6 py-4 border-b text-center">Unit Qty</th>
+                                                <th className="px-3 md:px-6 py-4 border-b text-right">Ext. Price</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50 print:divide-slate-200">
+                                            <MaterialRow 
+                                                name="2x10 Decking (GC)" 
+                                                desc="3 Parallel Rows (Full length decking)" 
+                                                qty={`${calculations.decking} boards (12')`} 
+                                                cost={calculations.costs.decking} 
+                                            />
+                                            <MaterialRow 
+                                                name="4x6 Ground Supports" 
+                                                desc="3ft chunks cut from 12ft timbers" 
+                                                qty={`${calculations.supportCount} chunks (${calculations.totalSupportTimbers} timbers)`} 
+                                                cost={calculations.costs.support} 
+                                            />
+                                            <MaterialRow 
+                                                name="2x6 Shim Material" 
+                                                desc="Yields 12 (1') pieces per board" 
+                                                qty={`${calculations.shim} boards (12')`} 
+                                                cost={calculations.costs.shim} 
+                                            />
+                                            <MaterialRow 
+                                                name="3&quot; Deck Screws" 
+                                                desc={`${calculations.totalScrews} screws (includes 15% safety factor)`} 
+                                                qty={`${calculations.screwTubs} tub (${UNITS.boxQty} ct)`} 
+                                                cost={calculations.costs.fastener} 
+                                            />
+                                        </tbody>
+                                        <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-white">
+                                            <tr>
+                                                <td className="px-3 md:px-6 py-5 border-t text-[10px] font-bold uppercase text-slate-400">Project Totals</td>
+                                                <td className="border-t"></td>
+                                                <td className="px-3 md:px-6 py-5 text-right text-emerald-800 font-black text-lg md:text-xl border-t print:text-black print:border-t-2 print:border-black">
+                                                    ${calculations.costs.total.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-[10px] text-slate-500 text-center uppercase font-bold tracking-widest">
+                                    Little Traverse Conservancy • Boardwalk Cost Estimator • Calculated at 4' On-Center Spacing
+                                </div>
                             </section>
                         </div>
                     </div>
