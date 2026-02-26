@@ -253,9 +253,9 @@
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 print:divide-slate-200">
-                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Parallel Rows (Full length)" qty={`${calculations.deckingItems} boards (12')`} cost={calculations.costs.decking * calculations.deckingItems} />
-                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers (12')`} cost={calculations.costs.support * calculations.supportItems} />
-                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards (12')`} cost={calculations.costs.shim * calculations.shimItems} />
+                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Parallel Rows (Full length)" qty={`${calculations.deckingItems} boards (12')`} cost={calculations.costs.decking} />
+                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers (12')`} cost={calculations.costs.support} />
+                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards (12')`} cost={calculations.costs.shim} />
                                             <MaterialRow name="3&quot; Deck Screws" desc={`${calculations.totalScrews} screws (includes 15% extra)`} qty={`${calculations.screwItems} tub (1543 ct)`} cost={calculations.costs.fastener} />
                                         </tbody>
                                         <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-transparent">
