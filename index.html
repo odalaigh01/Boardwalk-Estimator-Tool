@@ -34,7 +34,7 @@
             .print-full { width: 100% !important; border: none !important; box-shadow: none !important; }
             .leaflet-control-container { display: none !important; }
             
-            /* Enhanced map frame for print */
+            /* High-fidelity map frame for print */
             #map { 
                 height: 500px !important; 
                 width: 100% !important;
@@ -46,7 +46,7 @@
                 background-color: #f1f5f9 !important;
             }
             
-            /* Ensure all tiles render */
+            /* Force all tiles to render in print output */
             .leaflet-tile-container img {
                 visibility: visible !important;
                 opacity: 1 !important;
@@ -72,6 +72,14 @@
         #map { height: 350px; width: 100%; border-radius: 0.75rem; border: 1px solid #e2e8f0; background: #f1f5f9; }
         @media (min-width: 768px) {
             #map { height: 400px; }
+        }
+
+        /* Smooth transition for print prep mode */
+        .map-container-expanded {
+            width: 100% !important;
+            height: 500px !important;
+            position: relative;
+            z-index: 40;
         }
     </style>
 </head>
@@ -145,7 +153,7 @@
             </tr>
         );
 
-        const BoardwalkMap = ({ onLengthCalculated, mapRef }) => {
+        const BoardwalkMap = ({ onLengthCalculated, mapRef, isExpanded }) => {
             const mapInstance = useRef(null);
             const geoJsonLayer = useRef(null);
             const [fileName, setFileName] = useState("");
@@ -157,16 +165,14 @@
                         scrollWheelZoom: true
                     }).setView([45.4, -84.9], 9);
                     
-                    // Aerial Photography Base Map (Esri World Imagery)
                     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community',
                         detectRetina: true,
                         updateWhenIdle: false,
-                        crossOrigin: 'anonymous', // Critical for print tile rendering
-                        keepBuffer: 12
+                        crossOrigin: 'anonymous',
+                        keepBuffer: 16 // Massive buffer to keep tiles loaded
                     }).addTo(mapInstance.current);
 
-                    // Add reference labels (cities/roads) over the imagery
                     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                         opacity: 0.8,
                         crossOrigin: 'anonymous'
@@ -174,26 +180,30 @@
 
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/LTC_Nature_Preserves_2025/FeatureServer/0',
-                        style: {
-                            color: '#10b981', weight: 2.5, opacity: 1, fillColor: '#10b981', fillOpacity: 0.3
-                        }
+                        style: { color: '#10b981', weight: 2.5, opacity: 1, fillColor: '#10b981', fillOpacity: 0.3 }
                     }).addTo(mapInstance.current).bindPopup(function (layer) {
                         return L.Util.template('<strong>Preserve:</strong> {Preserve_Name}', layer.feature.properties);
                     });
 
                     L.esri.featureLayer({
                         url: 'https://services.arcgis.com/M0RcaZONLNmkvwdY/arcgis/rest/services/WFR_2022/FeatureServer/0',
-                        style: {
-                            color: '#3b82f6', weight: 1.5, opacity: 0.9, fillColor: '#3b82f6', fillOpacity: 0.2
-                        }
+                        style: { color: '#3b82f6', weight: 1.5, opacity: 0.9, fillColor: '#3b82f6', fillOpacity: 0.2 }
                     }).addTo(mapInstance.current).bindPopup(function (layer) {
                         return L.Util.template('<strong>Working Forest Reserve:</strong> {Name}', layer.feature.properties);
                     });
 
-                    // Assign to external ref for parent control
                     if (mapRef) mapRef.current = mapInstance.current;
                 }
             }, []);
+
+            // Watch for expansion (print prep) and invalidate size
+            useEffect(() => {
+                if (mapInstance.current) {
+                    setTimeout(() => {
+                        mapInstance.current.invalidateSize({ animate: false });
+                    }, 50);
+                }
+            }, [isExpanded]);
 
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
@@ -205,32 +215,21 @@
                     try {
                         const buffer = event.target.result;
                         const geojson = await shp(buffer);
+                        if (geoJsonLayer.current) mapInstance.current.removeLayer(geoJsonLayer.current);
 
-                        if (geoJsonLayer.current) {
-                            mapInstance.current.removeLayer(geoJsonLayer.current);
-                        }
-
-                        // Use a high-contrast color (Bright Red) for the track over imagery
                         geoJsonLayer.current = L.geoJSON(geojson, {
                             style: { color: '#ff0000', weight: 5, opacity: 1 }
                         }).addTo(mapInstance.current);
 
                         mapInstance.current.invalidateSize();
-
                         const bounds = geoJsonLayer.current.getBounds();
                         if (bounds.isValid()) {
-                            mapInstance.current.fitBounds(bounds, {
-                                padding: [40, 40],
-                                maxZoom: 17,
-                                animate: true
-                            });
+                            mapInstance.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 17, animate: true });
                         }
 
                         const lengthKm = turf.length(geojson, { units: 'kilometers' });
-                        const lengthFeet = Math.round(lengthKm * 3280.84);
-                        onLengthCalculated(lengthFeet);
+                        onLengthCalculated(Math.round(lengthKm * 3280.84));
                     } catch (err) {
-                        console.error("Error parsing shapefile:", err);
                         alert("Error parsing zipped shapefile. Ensure it contains .shp and .dbf files.");
                     }
                 };
@@ -238,7 +237,7 @@
             };
 
             return (
-                <section className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 print:p-0 print:border-none print:shadow-none print:mb-4">
+                <section className={`bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 print:p-0 print:border-none print:shadow-none print:mb-4 ${isExpanded ? 'map-container-expanded' : ''}`}>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b pb-2 no-print gap-2">
                         <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-700">
                             <Icon name="map" className="text-emerald-600" />
@@ -251,7 +250,7 @@
                         </label>
                     </div>
                     
-                    <div id="map" className="z-0 border border-slate-100 shadow-inner overflow-hidden"></div>
+                    <div id="map" className={`z-0 border border-slate-100 shadow-inner overflow-hidden ${isExpanded ? 'h-[500px]' : ''}`}></div>
                     
                     <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 print-legend">
                         <div className="flex items-center gap-2">
@@ -275,12 +274,10 @@
 
         const App = () => {
             const [trailLength, setTrailLength] = useState(100);
+            const [isPreparingPrint, setIsPreparingPrint] = useState(false);
             const mapRef = useRef(null);
             const [costs, setCosts] = useState({
-                decking: 26.08,
-                support: 33.88,
-                shim: 12.75,
-                screws: 94.97,
+                decking: 26.08, support: 33.88, shim: 12.75, screws: 94.97,
             });
 
             const supportSpacing = 4;
@@ -290,73 +287,71 @@
             const calculations = useMemo(() => {
                 const length = parseFloat(trailLength) || 0;
                 const supportCount = length > 0 ? Math.ceil(length / supportSpacing) + 1 : 0;
-                const rawScrews = supportCount * 9;
-                const totalScrews = Math.ceil(rawScrews * screwSafetyBuffer); 
+                const totalScrews = Math.ceil((supportCount * 9) * screwSafetyBuffer); 
 
                 const deckingItems = length > 0 ? Math.ceil(length / UNITS.deckingLen) * 3 : 0;
                 const supportItems = supportCount > 0 ? Math.ceil(supportCount / (UNITS.supportLen / 3)) : 0;
                 const shimItems = (supportCount * avgShimsPerSupport) > 0 ? Math.ceil((supportCount * avgShimsPerSupport) / UNITS.shimLen) : 0; 
                 const screwItems = totalScrews > 0 ? Math.ceil(totalScrews / UNITS.boxQty) : 0;
 
-                const deckingTotalCost = deckingItems * costs.decking;
-                const supportTotalCost = supportItems * costs.support;
-                const shimTotalCost = shimItems * costs.shim;
-                const fastenerTotalCost = screwItems * costs.screws;
-                const totalCost = deckingTotalCost + supportTotalCost + shimTotalCost + fastenerTotalCost;
+                const costsCalculated = {
+                    decking: deckingItems * costs.decking,
+                    support: supportItems * costs.support,
+                    shim: shimItems * costs.shim,
+                    fastener: screwItems * costs.screws
+                };
+                costsCalculated.total = costsCalculated.decking + costsCalculated.support + costsCalculated.shim + costsCalculated.fastener;
 
                 const totalBF = ((2*10*(deckingItems*12)) + (4*6*(supportItems*12)) + (2*6*(shimItems*12))) / 12;
 
-                return {
-                    totalCF: totalBF / 12,
-                    totalScrews,
-                    deckingItems, supportItems, shimItems, screwItems,
-                    costs: {
-                        decking: deckingTotalCost,
-                        support: supportTotalCost,
-                        shim: shimTotalCost,
-                        fastener: fastenerTotalCost,
-                        total: totalCost
-                    }
-                };
+                return { totalCF: totalBF / 12, totalScrews, deckingItems, supportItems, shimItems, screwItems, costs: costsCalculated };
             }, [trailLength, costs]);
 
-            useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            }, []);
+            useEffect(() => { lucide?.createIcons(); }, []);
 
             const handleCostChange = (key, val) => {
                 const numericValue = parseFloat(val);
                 setCosts(prev => ({ ...prev, [key]: isNaN(numericValue) ? 0 : numericValue }));
             };
 
-            const handlePrint = () => {
+            const handlePrint = async () => {
+                setIsPreparingPrint(true);
+                
+                // Allow layout to settle and expand
+                await new Promise(r => setTimeout(r, 300));
+
                 if (mapRef.current) {
-                    // 1. Force the map to fill the print container size
                     mapRef.current.invalidateSize({ animate: false });
                     
-                    // 2. Identify the track layer and re-center the map specifically for the print export
+                    // Center on track specifically for print
                     mapRef.current.eachLayer(layer => {
                         if (layer instanceof L.GeoJSON) {
-                            const bounds = layer.getBounds();
-                            if (bounds.isValid()) {
-                                mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: false });
-                            }
+                            mapRef.current.fitBounds(layer.getBounds(), { padding: [50, 50], animate: false });
                         }
                     });
 
-                    // 3. Extended delay (1000ms) to ensure all tiles for the expanded container are fetched
-                    setTimeout(() => {
-                        window.print();
-                    }, 1000);
+                    // Wait 2 seconds for high-res imagery tiles to load in the expanded area
+                    await new Promise(r => setTimeout(r, 2200));
+                    window.print();
+                    setIsPreparingPrint(false);
                 } else {
                     window.print();
+                    setIsPreparingPrint(false);
                 }
             };
 
             return (
-                <div className="p-4 md:p-8 max-w-6xl mx-auto print:p-4 print:max-w-none">
+                <div className={`p-4 md:p-8 max-w-6xl mx-auto print:p-4 print:max-w-none ${isPreparingPrint ? 'print-prep-active' : ''}`}>
+                    {isPreparingPrint && (
+                        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center no-print">
+                            <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs">
+                                <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                                <h2 className="text-lg font-bold text-slate-800">Preparing Report</h2>
+                                <p className="text-sm text-slate-500">Loading high-resolution map tiles for your export. Please wait...</p>
+                            </div>
+                        </div>
+                    )}
+
                     <header className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6 print:mb-4 print:border-slate-800">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-bold text-emerald-900 flex items-center gap-2 leading-tight print:text-black">
@@ -375,9 +370,8 @@
                     </header>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-                        {/* Column 1: Map & Inputs */}
-                        <div className="lg:col-span-4 space-y-6 print:col-span-12 print:w-full">
-                            <BoardwalkMap onLengthCalculated={setTrailLength} mapRef={mapRef} />
+                        <div className={`${isPreparingPrint ? 'lg:col-span-12' : 'lg:col-span-4'} space-y-6 print:col-span-12 print:w-full transition-all duration-500`}>
+                            <BoardwalkMap onLengthCalculated={setTrailLength} mapRef={mapRef} isExpanded={isPreparingPrint} />
                             
                             <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 no-print">
                                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 border-b pb-2 text-slate-700">
@@ -387,12 +381,7 @@
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1 text-xs">Trail Length (Linear Feet)</label>
                                     <div className="relative">
-                                        <input 
-                                            type="number" 
-                                            value={trailLength} 
-                                            onChange={(e) => setTrailLength(e.target.value)}
-                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none pl-10 font-bold"
-                                        />
+                                        <input type="number" value={trailLength} onChange={(e) => setTrailLength(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none pl-10 font-bold" />
                                         <div className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">FT</div>
                                     </div>
                                 </div>
@@ -412,8 +401,7 @@
                             </section>
                         </div>
 
-                        {/* Column 2: Results & Table */}
-                        <div className="lg:col-span-8 space-y-6 print:col-span-12 print:w-full">
+                        <div className={`${isPreparingPrint ? 'lg:col-span-12' : 'lg:col-span-8'} space-y-6 print:col-span-12 print:w-full transition-all duration-500`}>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:gap-2">
                                 <div className="bg-emerald-600 text-white p-5 md:p-6 rounded-2xl shadow-lg border border-emerald-700 print:bg-white print:text-black print:border-slate-800 print:shadow-none">
                                     <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-1 print:text-slate-900">Total Project Cost</p>
@@ -438,13 +426,7 @@
                                         <Icon name="table" className="text-emerald-600 print:text-black flex-shrink-0" />
                                         Required Materials List ({parseFloat(trailLength) || 0} FT)
                                     </h2>
-                                    <button 
-                                        onClick={() => setTrailLength(100)}
-                                        className="no-print p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-400 hover:text-emerald-600 transition-all"
-                                        title="Reset length"
-                                    >
-                                        <Icon name="refresh-cw" size={16} />
-                                    </button>
+                                    <button onClick={() => setTrailLength(100)} className="no-print p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-400 hover:text-emerald-600 transition-all"><Icon name="refresh-cw" size={16} /></button>
                                 </div>
                                 
                                 <div className="overflow-x-auto">
@@ -457,9 +439,9 @@
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 print:divide-slate-200">
-                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} boards`} cost={calculations.costs.decking * calculations.deckingItems} />
-                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers`} cost={calculations.costs.support * calculations.supportItems} />
-                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards`} cost={calculations.costs.shim * calculations.shimItems} />
+                                            <MaterialRow name="2x10 Decking (GC)" desc="3 Rows (12' units)" qty={`${calculations.deckingItems} boards`} cost={calculations.costs.decking} />
+                                            <MaterialRow name="4x6 Ground Supports" desc="4 pieces (3' each) per timber" qty={`${calculations.supportItems} timbers`} cost={calculations.costs.support} />
+                                            <MaterialRow name="2x6 Shim Material" desc="12 pieces (1' each) per board" qty={`${calculations.shimItems} boards`} cost={calculations.costs.shim} />
                                             <MaterialRow name="3&quot; Deck Screws" desc={`Includes 15% extra`} qty={`${calculations.screwItems} tub`} cost={calculations.costs.fastener} />
                                         </tbody>
                                         <tfoot className="bg-slate-50 font-bold text-slate-800 print:bg-white">
@@ -475,7 +457,7 @@
                                 </div>
                                 <div className="hidden print:block mt-8 pt-4 border-t border-slate-200 text-[10px] text-slate-500 text-center uppercase font-bold tracking-widest">
                                     Report generated by LTC Boardwalk Cost Estimator Tool • Support Spacing: 4'
-                                000000</div>
+                                </div>
                             </section>
                         </div>
                     </div>
